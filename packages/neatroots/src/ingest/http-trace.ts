@@ -104,16 +104,19 @@ export function httpTraceToBatches(body: unknown, fallbackProject = "http"): { b
   const userId = root.end_user_id ?? root.endUserId ?? root.user_id;
   const nowNs = BigInt(Date.now()) * 1_000_000n;
 
-  // Returns the node's end time, so a parent without times can span its children.
-  const walk = (n: HttpTraceNode, parent: string | null, startFallback: bigint): bigint => {
+  // Returns the node's start and end, so a parent without times can span its children.
+  const walk = (n: HttpTraceNode, parent: string | null, startFallback: bigint): { start: bigint; end: bigint } => {
     const spanId = crypto.randomBytes(8).toString("hex");
-    const start = toNs(n.start) ?? startFallback;
+    const ownStart = toNs(n.start);
+    let start = ownStart ?? startFallback;
     let cursor = start;
     const childEnds: bigint[] = [];
     const index = nodes.length;
     nodes.push({ traceId, spanId, parentSpanId: parent, name: n.name, start: Number(start) } as SpanNode);
     for (const c of n.children ?? []) {
-      const end = walk(c, spanId, cursor);
+      const { start: childStart, end } = walk(c, spanId, cursor);
+      // A parent without its own start begins with its earliest child, not at ingest time.
+      if (ownStart === undefined && childStart < start) start = childStart;
       childEnds.push(end);
       cursor = end;
     }
@@ -155,7 +158,7 @@ export function httpTraceToBatches(body: unknown, fallbackProject = "http"): { b
       logs: n.logs,
     };
     // Number() keeps ns precision only to ~1 µs; that is plenty for display and ordering.
-    return end;
+    return { start, end };
   };
   walk(root, null, nowNs);
   // SpanNode times are numbers in ns here; buildSpan reads values above 1e17 as ns.
