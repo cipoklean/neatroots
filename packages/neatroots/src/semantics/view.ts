@@ -18,6 +18,7 @@ export type SpanKind =
   | "VECTOR_STORE"
   | "MEMORY"
   | "GUARDRAIL"
+  | "EVALUATOR"
   | "LOG"
   | "HTTP"
   | "INTERNAL"
@@ -25,7 +26,7 @@ export type SpanKind =
 
 const KNOWN_KINDS = new Set<string>([
   "WORKFLOW", "AGENT", "CHAIN", "TASK", "LLM", "TOOL", "MCP_TOOL", "RETRIEVER", "RERANKER",
-  "EMBEDDING", "VECTOR_STORE", "MEMORY", "GUARDRAIL", "LOG", "HTTP", "INTERNAL", "UNKNOWN",
+  "EMBEDDING", "VECTOR_STORE", "MEMORY", "GUARDRAIL", "EVALUATOR", "LOG", "HTTP", "INTERNAL", "UNKNOWN",
 ]);
 
 export const COMPLETE_MARKER = "neatlogs.trace.complete";
