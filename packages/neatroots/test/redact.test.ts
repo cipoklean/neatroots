@@ -33,6 +33,25 @@ describe("redaction before a cloud send", () => {
     for (const raw of [KEY, "bob@example.com", "alice@example.com", "carol@example.com"]) expect(all).not.toContain(raw);
   });
 
+  it("redacts a bearer token whatever the case of the scheme", () => {
+    const tok = "eyJhbGciOiJIUzI1NiJ9.abcdefghij0123456789";
+    const b = batch([
+      span({
+        traceId: hex(16),
+        spanId: hex(8),
+        name: "call_api",
+        kind: "tool",
+        attrs: [s("a", `Authorization: Bearer ${tok}1`), s("b", `authorization: bearer ${tok}2`), s("c", `BEARER ${tok}3`), s("d", "the bearer of this message")],
+      }),
+    ]);
+    const { batches, hits } = redactBatches([b], BUILTIN_RULES);
+    const attrs = JSON.stringify(batches[0].spans[0].attributes);
+    for (const n of [1, 2, 3]) expect(attrs).not.toContain(`${tok}${n}`);
+    expect(attrs).toContain("authorization: bearer [redacted:bearer_token]");
+    expect(attrs).toContain("the bearer of this message");
+    expect(hits.filter((h) => h.kind === "bearer_token")).toHaveLength(3);
+  });
+
   it("leaves clean names unchanged", () => {
     const b = batch([span({ traceId: hex(16), spanId: hex(8), name: "lookup_order", kind: "tool" })]);
     const { batches, hits } = redactBatches([b], BUILTIN_RULES);
