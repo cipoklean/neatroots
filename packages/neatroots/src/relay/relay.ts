@@ -178,6 +178,10 @@ export class Relay {
     const endpoint = (opts.endpoint ?? this.endpoint()).replace(/\/+$/, "");
     const key = opts.apiKey ?? (await getCloudKey());
     const base = { trace_ids: traceIds, endpoint, initiated_by: initiatedBy };
+    const unknown = traceIds.filter((id) => !this.roots.store.getRun(id));
+    if (unknown.length) {
+      return this.roots.store.insertForward({ ...base, status: "error", http_status: null, span_count: 0, bytes: 0, redactions: 0, error: `no run with id ${unknown.join(", ")}` });
+    }
     if (!key) {
       return this.roots.store.insertForward({ ...base, status: "error", http_status: null, span_count: 0, bytes: 0, redactions: 0, error: "No Neatlogs Cloud API key. Add one with `neatroots cloud login` or in the app." });
     }
