@@ -43,6 +43,23 @@ function clip(s: string, n = 120): string {
 }
 
 /**
+ * The texts a `match` rule reads from a field: the field as JSON, plus each string inside it.
+ * A string nested in an object (an MCP result's `content[].text`, say) is escaped by
+ * JSON.stringify, so `"error":` inside it reads as `\"error\":` and a pattern written for
+ * plain output would never see it.
+ */
+function matchTexts(v: unknown): string[] {
+  if (typeof v === "string") return [v];
+  const texts = [JSON.stringify(v)];
+  const walk = (x: unknown, depth: number): void => {
+    if (typeof x === "string") texts.push(x);
+    else if (x && typeof x === "object" && depth < 32) for (const y of Object.values(x)) walk(y, depth + 1);
+  };
+  walk(v, 0);
+  return texts;
+}
+
+/**
  * Evaluates one rule against a trace. Returns null when the rule has never held in this
  * trace; otherwise `firing` says whether it still holds for the newest spans, which is how
  * a finding later resolves. `fresh` names the spans that just arrived: a streak they complete
@@ -153,8 +170,10 @@ export function evaluateRule(check: RuleCheck, t: TraceSnapshot, atEnd: boolean,
       const hits = selectSpans(t.spans, r.span).filter((s) => {
         const v = r.field === "input" ? s.input : r.field === "output" ? s.output : r.field === "error" ? s.error : s.name;
         if (v === undefined || v === null) return false;
-        re.lastIndex = 0;
-        return re.test(typeof v === "string" ? v : JSON.stringify(v));
+        return matchTexts(v).some((text) => {
+          re.lastIndex = 0;
+          return re.test(text);
+        });
       });
       if (!hits.length) return null;
       return { firing: true, evidenceSpanIds: hits.map((s) => s.id), params: { count: String(hits.length), span: hits[0].ref } };
