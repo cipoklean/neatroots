@@ -42,20 +42,33 @@ function clip(s: string, n = 120): string {
   return s.length > n ? s.slice(0, n - 1) + "…" : s;
 }
 
+/** How much of a field a `match` rule reads, across all the texts it reads from it. */
+const MATCH_CHARS = 200_000;
+
 /**
- * The texts a `match` rule reads from a field: the field as JSON, plus each string inside it.
- * A string nested in an object (an MCP result's `content[].text`, say) is escaped by
- * JSON.stringify, so `"error":` inside it reads as `\"error\":` and a pattern written for
- * plain output would never see it.
+ * The texts a `match` rule reads from a field: each text item of an MCP tool result, read like
+ * a plain string output, then the field itself (as JSON when it isn't a string).
+ * JSON.stringify escapes the quotes inside `content[].text`, so `"error":` there reads as
+ * `\"error\":` and a pattern written for plain output would never see it. All texts share one
+ * MATCH_CHARS budget, so the text items, which are the tool's real output, are read first.
  */
 function matchTexts(v: unknown): string[] {
-  if (typeof v === "string") return [v];
-  const texts = [JSON.stringify(v)];
-  const walk = (x: unknown, depth: number): void => {
-    if (typeof x === "string") texts.push(x);
-    else if (x && typeof x === "object" && depth < 32) for (const y of Object.values(x)) walk(y, depth + 1);
+  const texts: string[] = [];
+  let budget = MATCH_CHARS;
+  const add = (text: string): void => {
+    if (budget <= 0) return;
+    const clipped = text.slice(0, budget);
+    texts.push(clipped);
+    budget -= clipped.length;
   };
-  walk(v, 0);
+  const content = v && typeof v === "object" && !Array.isArray(v) ? (v as { content?: unknown }).content : undefined;
+  if (Array.isArray(content)) {
+    for (const item of content) {
+      const part = item && typeof item === "object" ? (item as { type?: unknown; text?: unknown }) : undefined;
+      if (part?.type === "text" && typeof part.text === "string") add(part.text);
+    }
+  }
+  add(typeof v === "string" ? v : JSON.stringify(v));
   return texts;
 }
 

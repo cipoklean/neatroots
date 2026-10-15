@@ -32,7 +32,7 @@ action: flag              # or halt (your own rules only)
 | `count` | the run has `at_least` matching spans |
 | `slow` | a matching span took at least `at_least_ms` milliseconds (one slow tool call, not the whole run; use `threshold` with `duration_ms` for the run) |
 | `threshold` | a run metric (`total_tokens`, `llm_calls`, `duration_ms`, …) reaches `at_least` |
-| `match` | a regex matches a span's `input`, `output`, `error` or `name` |
+| `match` | a regex matches a span's `input`, `output`, `error` or `name`; an MCP tool result's `content[].text` items are read like plain output too |
 | `requires_before` | a `span` call has no earlier successful `requires` call in the same run, for example a refund with no order lookup |
 | `unrecovered_error` | at run end, the last call of a tool failed (no later success of that tool) and the run still produced a final answer that does not say anything failed (a words check, so it is a hint, not proof) |
 | `run_end` | the run ended with `error`, `no_output` or `interrupted` |
