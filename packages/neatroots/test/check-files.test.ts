@@ -68,6 +68,10 @@ describe("checkFiles", () => {
     expect(() => checkFiles([write(GOOD[0])], { only: ["nope"] })).toThrow(/no rule check named nope/);
   });
 
+  it("rejects an empty rule list instead of checking nothing", () => {
+    expect(() => checkFiles([write(BAD[0])], { only: [] })).toThrow(/names no rule ids/);
+  });
+  
   it("fails on a file that is not a trace", () => {
     const p = path.join(dir, "junk.json");
     fs.writeFileSync(p, "{oops");
