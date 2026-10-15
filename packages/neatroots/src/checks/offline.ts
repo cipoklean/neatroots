@@ -35,6 +35,7 @@ export function checkFiles(files: string[], opts: OfflineOptions = {}): { runs: 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "neatroots-check-"));
   const store = new Store(dir);
   try {
+    if (opts.only && !opts.only.length) throw new Error("--only names no rule ids");
     const registry = new CheckRegistry(store, path.join(rootsHome(), "checks"), () => opts.dirs ?? []);
     const errors = registry.errors.map((e) => `${e.path}: ${e.message.split("\n")[0]}`);
     const rules = registry
