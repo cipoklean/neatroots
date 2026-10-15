@@ -21,13 +21,16 @@ export function importSource(roots: Roots, traceId: string): string | null {
   return v && "stringValue" in v && v.stringValue !== "http" && v.stringValue !== "replay" ? v.stringValue : null;
 }
 
+/** The filters search understands. Any other word:value (a URL, host:port) is text to find. */
+const FILTERS = new Set(["project", "status", "kind", "tool", "model", "check", "since", "session", "has"]);
+
 /** `project:x status:failed kind:tool tool:lookup model:gpt has:problems check:id since:7d free text` */
 export function parseSearch(q: string): { text: string; filters: Record<string, string> } {
   const filters: Record<string, string> = {};
   const words: string[] = [];
   for (const m of q.matchAll(/(\w+):("([^"]*)"|\S+)|"([^"]*)"|(\S+)/g)) {
-    if (m[1]) filters[m[1].toLowerCase()] = m[3] ?? m[2];
-    else words.push(m[4] ?? m[5]);
+    if (m[1] && FILTERS.has(m[1].toLowerCase())) filters[m[1].toLowerCase()] = m[3] ?? m[2];
+    else words.push(m[1] ? m[0] : (m[4] ?? m[5]));
   }
   return { text: words.join(" ").trim(), filters };
 }
