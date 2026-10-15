@@ -102,7 +102,7 @@ describe("unrecovered_error rule", () => {
       expect(hit(st, run(st, [{ tool: "issue_refund", fail: true }], { answer })), answer).toBeNull();
     }
   });
-  
+
   it("still fires when the answer says nothing went wrong", () => {
     const st = store();
     for (const answer of ["Your refund was processed with no errors.", "Done! Everything went through without any errors.", "Refund complete, no need to try again."]) {
@@ -110,7 +110,7 @@ describe("unrecovered_error rule", () => {
     }
     expect(hit(st, run(st, [{ tool: "issue_refund", fail: true }], { answer: "No errors were logged, but the refund failed." }))).toBeNull();
   });
-  
+
   it("ignores runs with no tool calls and clean runs", () => {
     const st = store();
     expect(hit(st, run(st, []))).toBeNull();
