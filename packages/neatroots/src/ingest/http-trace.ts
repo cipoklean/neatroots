@@ -125,7 +125,8 @@ export function httpTraceToBatches(body: unknown, fallbackProject = "http"): { b
       kind,
       start: Number(start),
       end: Number(end),
-      status: n.status?.toUpperCase() ?? (n.error ? "ERROR" : "OK"),
+      // A guardrail that didn't pass (passed: false) is an error span, as the HTTP trace docs say.
+      status: n.status?.toUpperCase() ?? (n.error || n.passed === false ? "ERROR" : "OK"),
       error: n.error ?? null,
       input: n.input ?? n.query,
       output: n.output ?? n.documents,

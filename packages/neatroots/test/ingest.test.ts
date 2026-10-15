@@ -100,6 +100,19 @@ describe("Neatlogs HTTP trace API (POST /v1/trace)", () => {
     expect(httpTraceToBatches({ name: "a", passed: true, score: 0.9, model: "m", tokens: { prompt: 10, total: 15 } }).spans).toBe(1);
   });
 
+  it("marks a guardrail that didn't pass as an error span", () => {
+    const { batches } = httpTraceToBatches({
+      name: "agent",
+      children: [
+        { name: "blocked", kind: "GUARDRAIL", passed: false, score: 0.97 },
+        { name: "allowed", kind: "GUARDRAIL", passed: true, score: 0.02 },
+        { name: "overridden", kind: "GUARDRAIL", passed: false, status: "OK" }, // an explicit status still wins
+      ],
+    });
+    const status = Object.fromEntries(batches[0].spans.map((sp) => [sp.name, sp.status.code]));
+    expect(status).toEqual({ agent: 1, blocked: 2, allowed: 1, overridden: 1 });
+  });
+
   it("is served at /v1/trace and the run shows up", async () => {
     t = await makeRoots({ serve: true, noEngine: true });
     const res = await fetch(`${t.url}/v1/trace`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer nlw_x" }, body: JSON.stringify({ name: "hello", project: "p1", input: "hi", output: "hey", children: [{ name: "llm", model: "m", input: "hi", output: "hey" }] }) });
