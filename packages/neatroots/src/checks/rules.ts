@@ -223,7 +223,7 @@ export function evaluateRule(check: RuleCheck, t: TraceSnapshot, atEnd: boolean,
     case "cycle": {
       const spans = selectSpans(t.spans, r.span).sort((a, b) => a.endMs - b.endMs);
       const names = spans.map((s) => s.toolName ?? s.name);
-      const outs = spans.map((s) => JSON.stringify(s.output ?? null));
+      const outs = spans.map((s) => jsonKey(s.output));
       // Longest tail of the call list that is one short pattern repeated with no new results.
       for (let p = 2; p <= r.max_period; p++) {
         let n = spans.length;
