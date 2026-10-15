@@ -39,6 +39,22 @@ describe("Neatlogs HTTP trace API (POST /v1/trace)", () => {
     expect(buildView(root, batches[0].resource.attributes)).toMatchObject({ kind: "WORKFLOW", sessionId: "s1", workflow: "web-app" });
   });
 
+  it("infers a node's kind in the documented order when it doesn't say", () => {
+    const { batches } = httpTraceToBatches({
+      name: "agent",
+      children: [
+        { name: "update_address", input: { order: "1001" }, status: "ERROR", error: "500" }, // a bare leaf is a tool
+        { name: "plan", children: [{ name: "search" }] }, // a node with children is a chain
+        { name: "summarize", tokens: { prompt: 10, completion: 2 } }, // tokens alone mean an LLM call
+        { name: "toxicity", score: 0.1 }, // score alone means a guardrail
+        { name: "call_api", tool_name: "weather", model: "gpt-4o" }, // tool_name wins over model
+        { name: "step", kind: "AGENT" }, // an explicit kind always wins
+      ],
+    });
+    const kinds = Object.fromEntries(batches[0].spans.map((sp) => [sp.name, buildView(sp, []).kind]));
+    expect(kinds).toEqual({ agent: "WORKFLOW", update_address: "TOOL", plan: "CHAIN", search: "TOOL", summarize: "LLM", toxicity: "GUARDRAIL", call_api: "TOOL", step: "AGENT" });
+  });
+
   it("rejects a malformed trace with field details", () => {
     expect(() => httpTraceToBatches({ children: [{ name: 3 }] })).toThrow(HttpTraceError);
     try {

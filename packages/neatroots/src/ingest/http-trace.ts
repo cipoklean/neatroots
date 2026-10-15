@@ -79,6 +79,19 @@ function validate(node: unknown, path: string, errors: Record<string, string>, d
   if (n.status !== undefined && !["OK", "ERROR", "ok", "error"].includes(String(n.status))) errors[`${path}status`] = "must be OK or ERROR";
 }
 
+/**
+ * A node's kind when it doesn't say, in the documented order: tool_name, passed/score, model/tokens,
+ * query/documents; then the root is a workflow, a node with children a chain, and a bare leaf a tool.
+ */
+function inferKind(n: HttpTraceNode, isRoot: boolean): string {
+  if (n.tool_name) return "tool";
+  if (n.passed !== undefined || n.score !== undefined) return "guardrail";
+  if (n.model || n.tokens) return "llm";
+  if (n.query !== undefined || n.documents !== undefined) return "retriever";
+  if (isRoot) return "workflow";
+  return n.children?.length ? "chain" : "tool";
+}
+
 /** Converts one HTTP trace into OTLP spans. Throws HttpTraceError with field details when it's malformed. */
 export function httpTraceToBatches(body: unknown, fallbackProject = "http"): { batches: ResourceSpansBatch[]; traceId: string; spans: number } {
   const errors: Record<string, string> = {};
@@ -111,7 +124,7 @@ export function httpTraceToBatches(body: unknown, fallbackProject = "http"): { b
       if (Number.isFinite(durNs)) end = start + BigInt(durNs);
     }
     if (end === undefined) end = childEnds.length ? childEnds.reduce((a, b) => (b > a ? b : a)) : start;
-    const kind = n.kind ?? (n.model ? "llm" : n.tool_name ? "tool" : n.query !== undefined || n.documents !== undefined ? "retriever" : n.passed !== undefined ? "guardrail" : parent ? "chain" : "workflow");
+    const kind = n.kind ?? inferKind(n, !parent);
     const attributes: Record<string, unknown> = { ...(n.attributes ?? {}) };
     for (const [k, v] of Object.entries(n.metadata ?? {})) attributes[`neatlogs.metadata.${k}`] = v;
     if (n.passed !== undefined) attributes["neatlogs.guardrail.passed"] = n.passed;
