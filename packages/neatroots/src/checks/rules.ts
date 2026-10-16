@@ -33,10 +33,10 @@ function keyOf(s: SpanInfo, fields: string[]): string {
 }
 
 /** Words an agent uses when it tells the user something went wrong. */
-const ADMITS_FAILURE = /\b(fail(ed|s|ures?|ing)?|errors?|unable|couldn'?t|could not|can'?t|cannot|unfortunately|sorry|apologi[sz]e|(didn'?t|did not) (go through|work|succeed)|(not|wasn'?t|weren'?t) (able|successful|completed)|try again|retry)\b/i;
+const ADMITS_FAILURE = /\b(fail(ed|s|ures?|ing)?|errors?|unable|couldn'?t|could not|can'?t|can ?not|unfortunately|sorry|apologi[sz]e|(didn'?t|did not|doesn'?t|does not|won'?t|will not) (go through|work|succeed)|(not|wasn'?t|weren'?t) (able|successful|completed)|try again|retry)\b/i;
 
-/** Curly and modifier apostrophes, as models often write "couldn’t". */
-const APOSTROPHES = /[\u2018\u2019\u02BC]/g;
+/** Curly, modifier, backtick, and fullwidth apostrophes, as models often write "couldn’t". */
+const APOSTROPHES = /[\u2018\u2019\u02BC\u0060\uFF07]/g;
 
 /** "No errors", "0 failures", "weren't any failures", "no need to try again": the answer says nothing failed. */
 const DENIES_FAILURE = /\b(?:no|zero|0|without(?: any)?|free of|(?:weren'?t|wasn'?t|were not|was not|never(?:\s+\w+)?)\s+any)\s+(?:\w+\s+)?(?:errors?|fail(?:ures?|ed)?|issues?|problems?)\b|\bno need to (?:try again|retry)\b/gi;
