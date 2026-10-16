@@ -1067,7 +1067,14 @@ ${library}`;
     total: number;
     truncated: boolean;
   }> {
-    const runs = this.roots.store.listRuns({ workflow: opts.workflow, project: opts.project, limit: opts.limit ?? 50 }).filter((r) => r.status !== "running");
+    const limit = opts.limit ?? 50;
+    // Only runs the check would watch: the engine skips runs outside its applies_to, so a preview
+    // over them would report hits the check can never raise. Look further back to still fill `limit`.
+    const runs = this.roots.store
+      .listRuns({ workflow: opts.workflow, project: opts.project, limit: check.applies_to ? 500 : limit })
+      .filter((r) => r.status !== "running")
+      .filter((r) => this.appliesTo(check, { project: r.project ?? "unknown", workflow: r.workflow ?? r.project ?? "unknown" }))
+      .slice(0, limit);
     const deadline = Date.now() + (opts.timeBudgetMs ?? 90_000);
     const hits: { trace_id: string; probability: number | null; evidence_span_ids: string[]; root_name: string | null }[] = [];
     let checked = 0;
