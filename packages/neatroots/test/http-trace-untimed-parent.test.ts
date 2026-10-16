@@ -58,4 +58,30 @@ describe("/v1/trace parent without its own times", () => {
     expect(dur.agent.end - dur.agent.start).toBe(3000);
     expect(dur.b.start).toBe(dur.a.end);
   });
+
+  it("starts with its earliest child even when the client clock runs ahead of the server", () => {
+    // Whole seconds, so Number(ns) rounding can't move the millisecond.
+    const ahead = Math.ceil((Date.now() + 60_000) / 1000) * 1000;
+    const iso = (msv: number) => new Date(msv).toISOString();
+    const t = times({
+      name: "agent",
+      children: [
+        { name: "llm", model: "gpt-4o", start: iso(ahead), end: iso(ahead + 2000) },
+        { name: "search", tool_name: "search", start: iso(ahead + 2000), end: iso(ahead + 5000) },
+      ],
+    });
+    expect(t.agent).toEqual({ start: ahead, end: ahead + 5000 });
+
+    // Nested: an untimed step between the root and its timed children starts with them too.
+    const nested = times({ name: "agent", children: [{ name: "plan", children: [{ name: "llm", model: "gpt-4o", start: iso(ahead), end: iso(ahead + 3000) }] }] });
+    expect(nested.agent).toEqual({ start: ahead, end: ahead + 3000 });
+    expect(nested.plan).toEqual({ start: ahead, end: ahead + 3000 });
+
+    // An untimed first step still starts at ingest time, so the parent stays at or before it.
+    const before = Date.now();
+    const mixed = times({ name: "agent", children: [{ name: "plan" }, { name: "llm", model: "gpt-4o", start: iso(ahead), end: iso(ahead + 3000) }] });
+    expect(mixed.agent.start).toBeLessThanOrEqual(mixed.plan.start);
+    expect(mixed.plan.start).toBeGreaterThanOrEqual(before - 1);
+    expect(mixed.plan.start).toBeLessThan(ahead);
+  });
 });
