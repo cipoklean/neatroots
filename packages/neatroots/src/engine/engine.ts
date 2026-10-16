@@ -121,6 +121,27 @@ export function flagged(c: QuestionCheck, r: DecisionResult): { flagged: boolean
  * model. The local LLM is called only to plan, investigate when triage says it is worth
  * it, write notes for the agent and summarize, within per-run budgets.
  */
+/** Thrown when a span id given to judge matches no span, or more than one, in the run. */
+export class UnknownSpanError extends Error {}
+
+/**
+ * The spans named by ids or unique prefixes (any case), in run order. An id that matches nothing or
+ * more than one span throws, so a question is never judged over less evidence than was asked for.
+ */
+function pickSpans<S extends { id: string }>(spans: S[], ids: string[], traceId: string): S[] {
+  const picked = new Set<string>();
+  for (const raw of ids) {
+    const id = String(raw ?? "").trim().toLowerCase();
+    if (!id) throw new UnknownSpanError(`an empty span id was given for run ${traceId}`);
+    const exact = spans.find((s) => s.id === id);
+    const hits = exact ? [exact] : spans.filter((s) => s.id.startsWith(id));
+    if (!hits.length) throw new UnknownSpanError(`no span ${raw} in run ${traceId}`);
+    if (hits.length > 1) throw new UnknownSpanError(`span id ${raw} matches more than one span in run ${traceId}; use more characters`);
+    picked.add(hits[0].id);
+  }
+  return spans.filter((s) => picked.has(s.id));
+}
+
 export class Engine {
   private live = new Map<string, LiveRun>();
   private workflowPlanning = new Map<string, Promise<PlanRow | undefined>>();
@@ -1047,7 +1068,7 @@ ${library}`;
     let text: string;
     let spanIds: string[];
     if (opts.spanIds?.length) {
-      const spans = snap.spans.filter((s) => opts.spanIds!.includes(s.id) || opts.spanIds!.some((id) => s.id.startsWith(id)));
+      const spans = pickSpans(snap.spans, opts.spanIds, traceId);
       const g = runGoal(snap);
       text = [g.user ? `User request: ${clip(g.user, 600)}` : "", "Spans:", ...spans.map((s) => describeSpan(s, ["input", "output", "status", "error"]))].filter(Boolean).join("\n");
       spanIds = spans.map((s) => s.id);

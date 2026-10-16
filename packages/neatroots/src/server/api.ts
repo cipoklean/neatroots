@@ -17,6 +17,7 @@ import { installInfo } from "../util/install.js";
 import { err, body, clampInt } from "./util.js";
 import { askRuns } from "../engine/assist.js";
 import { loadTrace } from "../engine/trace.js";
+import { UnknownSpanError } from "../engine/engine.js";
 import type { RunRow } from "../types.js";
 import { VERSION } from "../version.js";
 
@@ -470,6 +471,8 @@ export function mountApi(app: Hono, roots: Roots): void {
       roots.bus.emit("activity", { trace_id: b.trace_id, kind: "self-check", message: b.question });
       return c.json({ ...r, answer: r.probability >= 0.5 ? "yes" : "no" });
     } catch (e) {
+      // A span id the run doesn't have: say so, like an unknown run, instead of blaming the model.
+      if (e instanceof UnknownSpanError) return c.json({ probability: null, answer: "unknown", reason: e.message, evidence_span_ids: [] });
       return err(c, 503, llmErrorMessage(e));
     }
   });
